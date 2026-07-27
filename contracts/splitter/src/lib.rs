@@ -111,11 +111,28 @@ pub struct TokenDistribution {
 #[contracttype]
 #[derive(Clone)]
 enum DataKey {
+    /// Stores the total number of splits created. Used as a counter for generating
+    /// new split IDs. Value is a `u64` stored in instance storage.
     Count,
+    /// Stores the split configuration for a given split ID. The value is a `Split`
+    /// struct containing recipients, shares, and controller. Stored in persistent
+    /// storage keyed by the split ID.
     Split(u64),
+    /// Stores the escrowed balance for a specific split and token. The value is an
+    /// `i128` representing the amount of the token held in escrow for that split.
+    /// Stored in persistent storage keyed by (split_id, token_address).
     Balance(u64, Address),
+    /// Stores the list of split IDs created by a specific address (creator). The value
+    /// is a `Vec<u64>` containing all split IDs created by that address. Stored in
+    /// persistent storage keyed by the creator's address.
     Created(Address),
+    /// Stores the list of tokens that have non-zero balances for a specific split.
+    /// The value is a `Vec<Address>` of token addresses. Used to efficiently track
+    /// which tokens need distribution. Stored in persistent storage keyed by split ID.
     HeldTokens(u64),
+    /// Stores the pending controller address during a two-step control transfer.
+    /// The value is an `Address` representing the proposed new controller. Stored in
+    /// persistent storage keyed by split ID. Removed after transfer is accepted or cancelled.
     PendingController(u64),
     AccountBalance(Address, Address),
 }
@@ -581,10 +598,14 @@ impl Splitter {
 
     #[must_use]
     pub fn balance(env: Env, id: u64, token: Address) -> i128 {
-        env.storage()
-            .persistent()
-            .get(&DataKey::Balance(id, token))
-            .unwrap_or(0)
+        let key = DataKey::Balance(id, token.clone());
+        let amount: i128 = env.storage().persistent().get(&key).unwrap_or(0);
+        if amount > 0 {
+            env.storage()
+                .persistent()
+                .extend_ttl(&key, TTL_THRESHOLD, TTL_EXTEND_TO);
+        }
+        amount
     }
 
     pub fn has_split(env: Env, id: u64) -> bool {
@@ -771,6 +792,9 @@ fn credit(env: &Env, id: u64, token: &Address, amount: i128) {
     let key = DataKey::Balance(id, token.clone());
     let held: i128 = env.storage().persistent().get(&key).unwrap_or(0);
     env.storage().persistent().set(&key, &(held + amount));
+    env.storage()
+        .persistent()
+        .extend_ttl(&key, TTL_THRESHOLD, TTL_EXTEND_TO);
 
     let tokens_key = DataKey::HeldTokens(id);
     let mut tokens: Vec<Address> = env
