@@ -1147,6 +1147,10 @@ fn every_error_code_maps_to_its_triggering_call() {
         s.client.try_preview_payout(&id, &0),
         Err(Ok(Error::InvalidAmount))
     );
+    assert_eq!(
+        s.client.try_preview_payout(&id, &-1_000),
+        Err(Ok(Error::InvalidAmount))
+    );
 
     assert_eq!(
         s.client.try_distribute(&id, &token_id),
