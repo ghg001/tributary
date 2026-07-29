@@ -1053,12 +1053,25 @@ fn amounts(env: &Env, split: &Split, amount: i128) -> Result<Vec<i128>, Error> {
 fn payout(env: &Env, split: &Split, from: &Address, token: &Address, amount: i128) {
     let client = token::Client::new(env, token);
     let vault = env.current_contract_address();
-    let parts = amounts(env, split, amount).unwrap_or_else(|_| Vec::new(env));
+
+    let last = split.recipients.len() - 1;
+    let mut assigned: i128 = 0;
+
     for i in 0..split.recipients.len() {
-        let part = parts.get_unchecked(i);
+        let part = if i == last {
+            amount - assigned
+        } else {
+            match math::split_part(amount, split.shares.get_unchecked(i)) {
+                Some(p) => p,
+                None => return,
+            }
+        };
+        assigned += part;
+
         if part <= 0 {
             continue;
         }
+
         match split.recipients.get_unchecked(i) {
             Recipient::Account(addr) => match client.try_transfer(from, &addr, &part) {
                 Ok(Ok(())) => {}
@@ -1173,9 +1186,8 @@ fn distribute_recursive(
         Err(Error::NothingToDistribute) => {
             if current_depth == 0 {
                 return Err(Error::NothingToDistribute);
-            } else {
-                return Ok(0);
             }
+            return Ok(0);
         }
         Err(e) => return Err(e),
     };
@@ -1189,13 +1201,9 @@ fn distribute_recursive(
     .publish(env);
 
     if current_depth < max_depth {
-        let parts = amounts(env, &split, amount).unwrap_or_else(|_| Vec::new(env));
         for i in 0..split.recipients.len() {
-            let part = parts.get_unchecked(i);
-            if part > 0 {
-                if let Recipient::Split(child_id) = split.recipients.get_unchecked(i) {
-                    distribute_recursive(env, child_id, token, current_depth + 1, max_depth)?;
-                }
+            if let Recipient::Split(child_id) = split.recipients.get_unchecked(i) {
+                distribute_recursive(env, child_id, token, current_depth + 1, max_depth)?;
             }
         }
     }
