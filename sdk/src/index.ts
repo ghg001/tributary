@@ -153,6 +153,12 @@ export interface Client {
   split_count: (options?: MethodOptions) => Promise<AssembledTransaction<u64>>
 
   /**
+   * Construct and simulate a fee_cap transaction. Returns an AssembledTransaction object which will have a result field containing the result of the simulation. If this transaction changes contract state, you will need to call signAndSend() on the returned object.
+   * Returns the maximum fee rate in basis points allowed by the protocol.
+   */
+  fee_cap: (options?: MethodOptions) => Promise<AssembledTransaction<u32>>
+
+  /**
    * Construct and simulate a create_split transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    * Registers a new split and returns its id. Shares are basis points
    * and must sum to exactly 10_000. Passing a controller makes the
@@ -165,6 +171,12 @@ export interface Client {
    * Replaces the recipients and shares of a mutable split.
    */
   update_split: ({id, recipients, shares}: {id: u64, recipients: Array<Recipient>, shares: Array<u32>}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a set_fee transaction. Returns an AssembledTransaction object which will have a result field containing the result of the simulation. If this transaction changes contract state, you will need to call signAndSend() on the returned object.
+   * Updates the fee configuration for a mutable split. The fee rate is in basis points and must not exceed the protocol cap.
+   */
+  set_fee: ({id, fee}: {id: u64, fee: FeeConfig}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a preview_payout transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
