@@ -125,7 +125,7 @@ export default function ManageSplit({
 
   async function proposeTransfer() {
     const to = transferTo.trim();
-    if (!/^G[A-Z2-7]{55}$/.test(to)) {
+    if (!/^[GC][A-Z2-7]{55}$/.test(to)) {
       setMessage(t("controllerFormatError"));
       return;
     }
@@ -195,7 +195,7 @@ export default function ManageSplit({
     if (
       pendingTransfer !== null ||
       !transferTo.trim() ||
-      !/^G[A-Z2-7]{55}$/.test(transferTo.trim())
+      !/^[GC][A-Z2-7]{55}$/.test(transferTo.trim())
     ) {
       return null;
     }
