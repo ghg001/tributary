@@ -90,6 +90,10 @@ pub enum Error {
     StreamNotFound = 17,
     /// Code 18. Caller is not the stream's funder.
     NotStreamFunder = 18,
+    /// Code 19. M-of-N controller has an empty signer list, zero threshold, too-high threshold, or duplicate signers.
+    InvalidController = 19,
+    /// Code 20. An M-of-N controller action did not receive enough signer approvals.
+    InsufficientApprovals = 20,
 }
 
 #[contracttype]
@@ -291,6 +295,7 @@ impl Splitter {
         controller: Option<Controller>,
     ) -> Result<u64, Error> {
         creator.require_auth();
+        validate_controller(&controller)?;
         let id: u64 = env.storage().instance().get(&DataKey::Count).unwrap_or(0);
         validate(&env, id, &recipients, &shares)?;
         let split = Split {
@@ -428,7 +433,7 @@ impl Splitter {
     ) -> Result<(), Error> {
         let mut split = load(&env, id)?;
         let controller = split.controller.clone().ok_or(Error::SplitImmutable)?;
-        controller.require_auth();
+        controller.require_auth(&env)?;
         if !Self::held_tokens(env.clone(), id).is_empty() {
             return Err(Error::SplitHasBalance);
         }
@@ -455,7 +460,7 @@ impl Splitter {
     ) -> Result<(), Error> {
         let split = load(&env, id)?;
         let controller = split.controller.clone().ok_or(Error::SplitImmutable)?;
-        controller.require_auth();
+        controller.require_auth(&env)?;
 
         match new_controller {
             None => {
@@ -519,7 +524,7 @@ impl Splitter {
     pub fn cancel_transfer(env: Env, id: u64) -> Result<(), Error> {
         let split = load(&env, id)?;
         let controller = split.controller.clone().ok_or(Error::SplitImmutable)?;
-        controller.require_auth();
+        controller.require_auth(&env)?;
 
         env.storage()
             .persistent()
@@ -532,7 +537,7 @@ impl Splitter {
     pub fn close_split(env: Env, id: u64) -> Result<(), Error> {
         let split = load(&env, id)?;
         let controller = split.controller.ok_or(Error::SplitImmutable)?;
-        controller.require_auth();
+        controller.require_auth(&env)?;
 
         let tokens = Self::held_tokens(env.clone(), id);
         if !tokens.is_empty() {
@@ -1013,6 +1018,50 @@ fn load_created(env: &Env, creator: &Address) -> Vec<u64> {
     } else {
         Vec::new(env)
     }
+}
+
+impl Controller {
+    fn require_auth(&self, env: &Env) -> Result<(), Error> {
+        match self {
+            Controller::Single(addr) => {
+                addr.require_auth();
+                Ok(())
+            }
+            Controller::Multi(policy) => {
+                let mut approved = 0u32;
+                for signer in policy.signers.iter() {
+                    if env.try_require_auth(&signer).is_ok() {
+                        approved += 1;
+                        if approved >= policy.threshold {
+                            return Ok(());
+                        }
+                    }
+                }
+                Err(Error::InsufficientApprovals)
+            }
+        }
+    }
+}
+
+fn validate_controller(controller: &Option<Controller>) -> Result<(), Error> {
+    if let Some(Controller::Multi(policy)) = controller {
+        if policy.signers.is_empty()
+            || policy.threshold == 0
+            || policy.threshold > policy.signers.len()
+        {
+            return Err(Error::InvalidController);
+        }
+        for i in 0..policy.signers.len() {
+            for j in (i + 1)..policy.signers.len() {
+                let signer_i = policy.signers.get_unchecked(i);
+                let signer_j = policy.signers.get_unchecked(j);
+                if signer_i == signer_j {
+                    return Err(Error::InvalidController);
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 fn validate(
