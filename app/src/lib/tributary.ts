@@ -81,6 +81,7 @@ export async function fetchProtocolFee(): Promise<ProtocolFee | null> {
   const { result } = await readClient().get_fee();
   if (result.isErr()) return null;
   const fee: any = result.unwrap();
+  if (!fee) return null;
   return {
     rateBps: Number(fee.rate_bps ?? fee.rate ?? 0),
     recipient: fee.recipient,
@@ -95,6 +96,18 @@ export function walletClient(publicKey: string): Client {
     publicKey,
     signTransaction,
   });
+}
+
+export async function setProtocolFee(
+  publicKey: string,
+  rateBps: number,
+  recipient: string,
+): Promise<void> {
+  const client = walletClient(publicKey);
+  const { result } = await client.set_fee({ rate_bps: rateBps, recipient });
+  if (result.isErr()) {
+    throw new Error("Failed to set protocol fee");
+  }
 }
 
 export async function connectWallet(): Promise<string> {
@@ -231,6 +244,9 @@ export async function fetchActivity(limit = 12): Promise<ActivityItem[]> {
       continue;
     }
     if (typeof type !== "string") continue;
+    if (type === "fee_paid" && fee === undefined) {
+      fee = amount;
+    }
     items.push({
       eventId: ev.id,
       type,
@@ -299,6 +315,9 @@ export async function fetchActivityForSplit(
       continue;
     }
     if (typeof type !== "string") continue;
+    if (type === "fee_paid" && fee === undefined) {
+      fee = amount;
+    }
     if (typeof id === "bigint" && id === splitId) {
       if (type === "split_paid" || type === "distributed" || type === "fee_paid") {
         items.push({
