@@ -49,6 +49,14 @@ export interface SplitView {
   controller: string | undefined;
 }
 
+export interface ProtocolFee {
+  rateBps: number;
+  recipient: string;
+  capBps: number;
+}
+
+export type PreviewPayout = bigint[] & { fee: bigint };
+
 function toSplitView(
   id: bigint,
   split: {
@@ -67,6 +75,17 @@ function toSplitView(
 
 export function readClient(): Client {
   return new Client({ ...networks.testnet, rpcUrl: RPC_URL });
+}
+
+export async function fetchProtocolFee(): Promise<ProtocolFee | null> {
+  const { result } = await readClient().get_fee();
+  if (result.isErr()) return null;
+  const fee: any = result.unwrap();
+  return {
+    rateBps: Number(fee.rate_bps ?? fee.rate ?? 0),
+    recipient: fee.recipient,
+    capBps: Number(fee.cap_bps ?? fee.max_rate_bps ?? 0),
+  };
 }
 
 export function walletClient(publicKey: string): Client {
@@ -125,9 +144,22 @@ export async function fetchMineIds(creator: string): Promise<Set<string>> {
 export async function previewPayout(
   id: bigint,
   amount: bigint,
-): Promise<bigint[]> {
+): Promise<PreviewPayout> {
   const { result } = await readClient().preview_payout({ id, amount });
-  return result.isErr() ? [] : [...result.unwrap()];
+  if (result.isErr()) return Object.assign([], { fee: 0n });
+  const preview: any = result.unwrap();
+  if (Array.isArray(preview)) {
+    if (preview.length > 0 && Array.isArray(preview[0])) {
+      return Object.assign([...preview[0]], { fee: preview[1] ?? 0n });
+    }
+    return Object.assign([...preview], { fee: 0n });
+  }
+  const amounts = Array.isArray(preview.amounts)
+    ? [...preview.amounts]
+    : Array.isArray(preview.recipients)
+      ? [...preview.recipients]
+      : [];
+  return Object.assign(amounts, { fee: preview.fee ?? 0n });
 }
 
 export interface ActivityItem {
@@ -136,6 +168,7 @@ export interface ActivityItem {
   id: bigint | undefined;
   amount: bigint | undefined;
   token: string | undefined;
+  fee?: bigint;
   ledger: number;
   txHash: string;
 }
@@ -180,6 +213,7 @@ export async function fetchActivity(limit = 12): Promise<ActivityItem[]> {
     let id: unknown;
     let amount: bigint | undefined;
     let token: string | undefined;
+    let fee: bigint | undefined;
     try {
       type = scValToNative(ev.topic[0]);
       id = ev.topic.length > 1 ? scValToNative(ev.topic[1]) : undefined;
@@ -189,6 +223,9 @@ export async function fetchActivity(limit = 12): Promise<ActivityItem[]> {
       }
       if (data && typeof data === "object" && "token" in data) {
         token = data.token as string;
+      }
+      if (data && typeof data === "object" && "fee" in data) {
+        fee = data.fee as bigint;
       }
     } catch {
       continue;
@@ -200,6 +237,7 @@ export async function fetchActivity(limit = 12): Promise<ActivityItem[]> {
       id: typeof id === "bigint" ? id : undefined,
       amount,
       token,
+      fee,
       ledger: ev.ledger,
       txHash: ev.txHash,
     });
@@ -243,6 +281,7 @@ export async function fetchActivityForSplit(
     let id: unknown;
     let amount: bigint | undefined;
     let token: string | undefined;
+    let fee: bigint | undefined;
     try {
       type = scValToNative(ev.topic[0]);
       id = ev.topic.length > 1 ? scValToNative(ev.topic[1]) : undefined;
@@ -253,18 +292,22 @@ export async function fetchActivityForSplit(
       if (data && typeof data === "object" && "token" in data) {
         token = data.token as string;
       }
+      if (data && typeof data === "object" && "fee" in data) {
+        fee = data.fee as bigint;
+      }
     } catch {
       continue;
     }
     if (typeof type !== "string") continue;
     if (typeof id === "bigint" && id === splitId) {
-      if (type === "split_paid" || type === "distributed") {
+      if (type === "split_paid" || type === "distributed" || type === "fee_paid") {
         items.push({
           eventId: ev.id,
           type,
           id,
           amount,
           token,
+          fee,
           ledger: ev.ledger,
           txHash: ev.txHash,
         });
