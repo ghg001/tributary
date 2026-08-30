@@ -66,8 +66,15 @@ export function decode(code: number): string | undefined {
   return (Errors as Record<number, { message: string }>)[code]?.message;
 }
 
+export interface Multisig {
+  threshold: u32;
+  signers: Array<string>;
+}
+
+export type Controller = {tag: "Single", values: readonly [string]} | {tag: "Multisig", values: readonly [Multisig]};
+
 export interface Split {
-  controller: Option<string>;
+  controller: Option<Controller>;
   recipients: Array<Recipient>;
   shares: Array<u32>;
 }
@@ -147,7 +154,7 @@ export interface Client {
    * and must sum to exactly 10_000. Passing a controller makes the
    * split mutable by that address; passing None locks it forever.
    */
-  create_split: ({creator, recipients, shares, controller}: {creator: string, recipients: Array<Recipient>, shares: Array<u32>, controller: Option<string>}, options?: MethodOptions) => Promise<AssembledTransaction<Result<u64>>>
+  create_split: ({creator, recipients, shares, controller}: {creator: string, recipients: Array<Recipient>, shares: Array<u32>, controller: Option<Controller>}, options?: MethodOptions) => Promise<AssembledTransaction<Result<u64>>>
 
   /**
    * Construct and simulate a update_split transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -167,7 +174,7 @@ export interface Client {
    * Proposes transferring control to a new address (two-step), or locks the
    * split forever when `new_controller` is `None`.
    */
-  transfer_control: ({id, new_controller}: {id: u64, new_controller: Option<string>}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
+  transfer_control: ({id, new_controller}: {id: u64, new_controller: Option<Controller>}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
 
   /**
    * Construct and simulate a accept_control transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -198,7 +205,7 @@ export interface Client {
   /**
    * Construct and simulate a pending_controller transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  pending_controller: ({id}: {id: u64}, options?: MethodOptions) => Promise<AssembledTransaction<Option<string>>>
+  pending_controller: ({id}: {id: u64}, options?: MethodOptions) => Promise<AssembledTransaction<Option<Controller>>>
 
   create_stream: ({funder, split_id, token, amount, start_time, end_time}: {funder: string, split_id: u64, token: string, amount: i128, start_time: u64, end_time: u64}, options?: MethodOptions) => Promise<AssembledTransaction<Result<u64>>>
   get_stream: ({id}: {id: u64}, options?: MethodOptions) => Promise<AssembledTransaction<Result<Stream>>>
