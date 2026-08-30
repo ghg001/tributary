@@ -40,9 +40,12 @@ calls.
 A split's `controller` is an `Address`. Calls that authorize against a split
 controller or pending controller (`update_split`, `transfer_control`,
 `cancel_transfer`, `close_split`, `accept_control`) call `require_auth` on that
-address. To make a split M-of-N controlled, set `controller` to a custom account
-contract whose `__check_auth` requires M of N signers; the splitter does not
-store signer sets or thresholds itself. Single-address controllers continue to
+address. To make a split M-of-N controlled, set `controller` to the address of a
+custom account contract whose `__check_auth` requires at least M of the N
+configured signer addresses to authorize. The splitter does not store signer
+sets or thresholds itself; the controller contract enforces the threshold, and
+any signer-set change must itself satisfy that contract's authorization policy.
+Single-address controllers continue to
 work unchanged.
 
 ## State-changing calls
