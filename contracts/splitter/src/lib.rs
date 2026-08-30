@@ -114,10 +114,24 @@ pub enum Recipient {
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MultiPolicy {
+    pub signers: Vec<Address>,
+    pub threshold: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Controller {
+    Single(Address),
+    Multi(MultiPolicy),
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Split {
     pub recipients: Vec<Recipient>,
     pub shares: Vec<u32>,
-    pub controller: Option<Address>,
+    pub controller: Option<Controller>,
 }
 
 #[contracttype]
@@ -265,14 +279,16 @@ pub struct Splitter;
 #[contractimpl]
 impl Splitter {
     /// Registers a new split and returns its id. Shares are basis points
-    /// and must sum to exactly `10_000`. Passing a controller makes the
-    /// split mutable by that address; passing None locks it forever.
+    /// and must sum to exactly `10_000`. Passing `Some(Controller::Single(addr))`
+    /// makes the split mutable by that address; passing
+    /// `Some(Controller::Multi(policy))` requires M-of-N signer approvals;
+    /// passing None locks it forever.
     pub fn create_split(
         env: Env,
         creator: Address,
         recipients: Vec<Recipient>,
         shares: Vec<u32>,
-        controller: Option<Address>,
+        controller: Option<Controller>,
     ) -> Result<u64, Error> {
         creator.require_auth();
         let id: u64 = env.storage().instance().get(&DataKey::Count).unwrap_or(0);
