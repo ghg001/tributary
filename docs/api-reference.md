@@ -35,12 +35,24 @@ calls.
 | 14 | `TooManyTokens` | more than `MAX_DISTRIBUTE_TOKENS` (10) tokens were requested |
 | 15 | `NoPendingTransfer` | no pending controller transfer exists for the split |
 
+## Controller authorization
+
+A split's `controller` is an `Address`. Calls that authorize against a split
+controller or pending controller (`update_split`, `transfer_control`,
+`cancel_transfer`, `close_split`, `accept_control`) call `require_auth` on that
+address. To make a split M-of-N controlled, set `controller` to a custom account
+contract whose `__check_auth` requires M of N signers; the splitter does not
+store signer sets or thresholds itself. Single-address controllers continue to
+work unchanged.
+
 ## State-changing calls
 
 ### `create_split(creator, recipients, shares, controller) -> Result<u64, Error>`
 Registers a new split and returns its id. `shares` are basis points and must sum
 to exactly 10,000. A `Some(controller)` makes the split mutable by that address;
-`None` locks it forever.
+`None` locks it forever. To create an M-of-N threshold-controlled split, pass the
+address of a custom account contract enforcing that policy; controller-gated
+actions delegate authorization to that contract.
 - **Auth:** `creator`
 - **Errors:** `NoRecipients`, `TooManyRecipients`, `LengthMismatch`, `ZeroShare`, `BadShareTotal`, `BadChildSplit`
 - **Event:** `SplitCreated { id, creator }`
