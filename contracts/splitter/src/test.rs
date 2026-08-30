@@ -541,6 +541,19 @@ fn set_fee_requires_authorization() {
 }
 
 #[test]
+fn set_fee_recipient_requires_authorization() {
+    let s = setup();
+    let fee_recipient = Address::generate(&s.env);
+    s.env.set_auths(&[]);
+    let result = s.env.try_invoke_contract::<(), Error>(
+        &s.client.address,
+        &soroban_sdk::Symbol::new(&s.env, "set_fee_recipient"),
+        (fee_recipient,).into_val(&s.env),
+    );
+    assert!(result.is_err());
+}
+
+#[test]
 fn pay_many_applies_protocol_fee_to_each_split() {
     let s = setup();
     let fee_recipient = Address::generate(&s.env);
@@ -1499,6 +1512,44 @@ proptest::proptest! {
             received += token_client.balance(&addr);
         }
         proptest::prop_assert_eq!(received, amount);
+    }
+}
+
+proptest::proptest! {
+    #[test]
+    fn property_conservation_with_protocol_fee(
+        weights in proptest::collection::vec(1u32..=1_000u32, 2..10usize),
+        amount in 1i128..1_000_000i128,
+    ) {
+        let env = soroban_sdk::Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(Splitter, ());
+        let client = SplitterClient::new(&env, &contract_id);
+        let creator = soroban_sdk::Address::generate(&env);
+        let fee_recipient = soroban_sdk::Address::generate(&env);
+        client.set_fee_recipient(&fee_recipient);
+        client.set_fee_bps(&333);
+
+        let shares = weights_to_shares(&env, &weights);
+        let mut recipients = soroban_sdk::vec![&env];
+        let mut addrs: Vec<Address> = soroban_sdk::vec![&env];
+        for _ in shares.iter() {
+            let addr = soroban_sdk::Address::generate(&env);
+            recipients.push_back(acct(&addr));
+            addrs.push_back(addr);
+        }
+
+        let id = client.create_split(&creator, &recipients, &shares, &None);
+        let payer = soroban_sdk::Address::generate(&env);
+        let (token_id, token_client) = fund_token(&env, &payer, amount);
+        client.pay(&payer, &id, &token_id, &amount);
+
+        let mut received: i128 = 0;
+        for addr in addrs.iter() {
+            received += token_client.balance(&addr);
+        }
+        let fee = amount * 333 / 10_000;
+        proptest::prop_assert_eq!(received + fee, amount);
     }
 }
 
