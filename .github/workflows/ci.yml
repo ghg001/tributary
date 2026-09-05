@@ -1,5 +1,4 @@
-name:ci
-
+name: ci
 on:
   push:
     branches: [main]
@@ -12,7 +11,7 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
       - run: rustup update stable && rustup target add wasm32-unknown-unknown
       - run: cargo fmt --all --check
@@ -28,12 +27,12 @@ jobs:
           wasm_path="target/wasm32-unknown-unknown/release/tributary_splitter.wasm"
           if [ -f "$wasm_path" ]; then
             size_bytes=$( wc -c < "$wasm_path" | xargs )
-            size_kb=$(awk "BEGIN GIFSecd "$.char \"ps%.\", \"2s\" )
+            size_kb=$(awk -v bytes="$size_bytes" 'BEGIN {printf "%.2f", bytes/1024}')
             {
               echo "## Contract size: tributary-splitter"
               echo ""
               echo "| Metric | Value |"
-              echo "| ----- | ----- |"
+              echo "| ---- | ----- |"
               echo "| Size (bytes) | $size_bytes |"
               echo "| Size (KiB) | ${size_kb} KiB |"
             } > contract-size.md
@@ -52,12 +51,12 @@ jobs:
   benchmark:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
       - run: rustup update stable && rustup target add wasm32-unknown-unknown
       - name: Generate benchmark costs
         working-directory: contracts/splitter
-        run: cargo test benchmark_costs --profile release-with-debug -- --ignored --nocapture
+        run: cargo test benchmark_costs --profile release-with-debug -- ignored --nocapture
       - name: Check metrics
         run: node scripts/check_metrics.js contracts/splitter/baseline.json contracts/splitter/costs.json
   coverage:
@@ -66,16 +65,16 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
       - run: rustup update stable && rustup component add llvm-tools-preview
-      - name: Install cargo-llmv-cov
-        uses: taiki-e/install-action@cargo-llmv-cov
+      - name: Install cargo-llvm-cov
+        uses: taika-e/install-action@cargo-llvm-cov
       - name: Run tests with coverage
-        run: cargo llmv-cov -p tributary-splitter --lcov --output-path lcov.info
+        run: cargo llvm-cov -p tributary-splitter --lcov --output-path lcov.info
       - name: Build coverage summary
         run: |
-          cargo llmv-cov report --json --summary-only --output-path coverage.json
+          cargo llvm-cov report --json --summary-only --output-path coverage.json
           lines=$( jq -r '.data[0].totals.lines.percent' coverage.json )
           functions=$( jq -r '.data[0].totals.functions.percent' coverage.json )
           regions=$( jq -r '.data[0].totals.regions.percent' coverage.json )
@@ -84,9 +83,9 @@ jobs:
             echo ""
             echo "| Metric | Coverage |"
             echo "| ----- | ------- |"
-            printf '| Lines | %.2f%% |\n" "$lines"
-            printf '| Functions | %.2f%% |\n' "$functions"
-            printf '| Regions | %.2f%% |\n' "$regions"
+            printf '| Lines | %.2f%% |' "$lines"
+            printf '| Functions | %.2f%% |' "$functions"
+            printf '| Regions | %.2f%% |' "$regions"
           } > coverage-summary.md
           cat coverage-summary.md >> "$GITHUB_STEP_SUMMARY"
       - name: Comment coverage on PR
@@ -96,7 +95,7 @@ jobs:
           header: contract-coverage
           path: coverage-summary.md
       - name: Upload lcov report
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: contract-coverage-lcov
           path: lcov.info
@@ -108,7 +107,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
       - run: rustup update stable && rustup target add wasm32-unknown-unknown
-      - run: cargo clippy --all-targets -- -W clippy::pedantic
+      - run: cargo clippy --all-targets -- -Wclippy::pedantic
 
   web:
     runs-on: ubuntu-latest
