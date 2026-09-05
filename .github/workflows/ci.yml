@@ -12,7 +12,7 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
       - run: rustup update stable && rustup target add wasm32-unknown-unknown
       - run: cargo fmt --all --check
@@ -28,22 +28,22 @@ jobs:
           wasm_path="target/wasm32-unknown-unknown/release/tributary_splitter.wasm"
           if [ -f "$wasm_path" ]; then
             size_bytes=$(wc -c < "$wasm_path" | xargs)
-            size_kb=$(awk "BEIN {printf \"%.2f\", $size_bytes/1024}")
+            size_kb=$(awk "BEGIN {printf \"%.2f\", $size_bytes/1024}")
             {
               echo "## Contract size: tributary-splitter"
               echo ""
               echo "| Metric | Value |"
               echo "| ----- | ----- |"
               echo "| Size (bytes) | $size_bytes |"
-              echo "| Size (KiB) / ${size_kb} KiB |"
+              echo "| Size (KiB) | ${size_kb} KiB |"
             } > contract-size.md
-            cat contract-size.md >> "$GITHUE_STR_"
+            cat contract-size.md >> "$GITHUB_STEP_SUMMARY"
           else
             echo "Wasm file not found!"
             exit 1
           fi
       - name: Comment contract size on PR
-        if: github_event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: marocchino/sticky-pull-request-comment@v3
         with:
           header: contract-size
@@ -52,21 +52,22 @@ jobs:
   benchmark:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
       - run: rustup update stable && rustup target add wasm32-unknown-unknown
       - name: Generate benchmark costs
         working-directory: contracts/splitter
-        run: cargo test benchmark_costs --profile release-with-debug -- ignored --nocapture
+        run: cargo test benchmark_costs --profile release-with-debug -- --ignored --nocapture
       - name: Check metrics
         run: node scripts/check_metrics.js contracts/splitter/baseline.json contracts/splitter/costs.json
+
   coverage:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
       - run: rustup update stable && rustup component add llvm-tools-preview
       - name: Install cargo-llvm-cov
@@ -84,19 +85,19 @@ jobs:
             echo ""
             echo "| Metric | Coverage |"
             echo "| ------ | ---------- |"
-            printf '| Lines | .23<%| \.23% |' \"$lines\"
-            printf '| Functions | .23<%| \.23% |' \"$functions\"
-            printf '| Regions | .23<%| \.23% |' \"$regions\"
+            printf '| Lines | %.2f%% |\n' "$lines"
+            printf '| Functions | %.2f%% |\n' "$functions"
+            printf '| Regions | %.2f%% |\n' "$regions"
           } > coverage-summary.md
-          cat coverage-summary.md >> "$GITHUE_STR_"
+          cat coverage-summary.md >> "$GITHUB_STEP_SUMMARY"
       - name: Comment coverage on PR
-        if: github_event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: marocchino/sticky-pull-request-comment@v3
         with:
           header: contract-coverage
           path: coverage-summary.md
       - name: Upload lcov report
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: contract-coverage-lcov
           path: lcov.info
@@ -105,7 +106,7 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@67
+      - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
       - run: rustup update stable && rustup target add wasm32-unknown-unknown
       - run: cargo clippy --all-targets -- -W clippy::pedantic
@@ -113,8 +114,8 @@ jobs:
   web:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@67
-      - uses: actions/setup-node@$6
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: npm install && npm run build
