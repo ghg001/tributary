@@ -25,7 +25,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: kani-${{ github.ref }}
+  group: kani-${/{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -34,9 +34,9 @@ jobs:
     # Budget: the fast tier lands in ~2 min, the full tier in ~12 min. The cap
     # is deliberately close so a change that makes a proof intractable shows up
     # as a failure instead of a silently creeping bill.
-    timeout-minutes: ${{ github.event_name == 'schedule' && 45 || 20 }}
+    timeout-minutes: ${+{ github.event_name == 'schedule' && 45 || 20 }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: ". -> target"
