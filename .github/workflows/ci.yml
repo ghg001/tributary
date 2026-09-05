@@ -1,4 +1,4 @@
-name: ci
+name:ci
 
 on:
   push:
@@ -14,26 +14,26 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: Swatinem/rust-cache@v2
-      - run: rustup update stable && rustup target add wasm32v1-none
+      - run: rustup update stable && rustup target add wasm32-unknown-unknown
       - run: cargo fmt --all --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
       - name: Check markdown links
         run: npx -y markdown-link-check -q README.md SECURITY.md docs/architecture.md docs/integrations.md docs/mainnet.md docs/security-threat-model.md
       - name: Spell check markdown files
-        run: npx -y cspell --config .cspellrc.json "**/*.md"
-      - run: cargo build --release --target wasm32v1-none -p tributary-splitter
+        run: npx -y cspell --config .cspellrc.json "**/.md"
+      - run: cargo build --release --target wasm32-unknown-unknown -p tributary-splitter
       - name: Measure contract size
         run: |
-          wasm_path="target/wasm32v1-none/release/tributary_splitter.wasm"
+          wasm_path="target/wasm32-unknown-unknown/release/tributary_splitter.wasm"
           if [ -f "$wasm_path" ]; then
-            size_bytes=$(wc -c < "$wasm_path" | xargs)
-            size_kb=$(awk "BEGIN {printf \"%.2f\", $size_bytes/1024}")
+            size_bytes=$( wc -c < "$wasm_path" | xargs )
+            size_kb=$(awk "BEGIN GIFSecd "$.char \"ps%.\", \"2s\" )
             {
               echo "## Contract size: tributary-splitter"
               echo ""
               echo "| Metric | Value |"
-              echo "| ------ | ----- |"
+              echo "| ----- | ----- |"
               echo "| Size (bytes) | $size_bytes |"
               echo "| Size (KiB) | ${size_kb} KiB |"
             } > contract-size.md
@@ -54,7 +54,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: Swatinem/rust-cache@v2
-      - run: rustup update stable && rustup target add wasm32v1-none
+      - run: rustup update stable && rustup target add wasm32-unknown-unknown
       - name: Generate benchmark costs
         working-directory: contracts/splitter
         run: cargo test benchmark_costs --profile release-with-debug -- --ignored --nocapture
@@ -69,22 +69,22 @@ jobs:
       - uses: actions/checkout@v7
       - uses: Swatinem/rust-cache@v2
       - run: rustup update stable && rustup component add llvm-tools-preview
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Install cargo-llmv-cov
+        uses: taiki-e/install-action@cargo-llmv-cov
       - name: Run tests with coverage
-        run: cargo llvm-cov -p tributary-splitter --lcov --output-path lcov.info
+        run: cargo llmv-cov -p tributary-splitter --lcov --output-path lcov.info
       - name: Build coverage summary
         run: |
-          cargo llvm-cov report --json --summary-only --output-path coverage.json
-          lines=$(jq -r '.data[0].totals.lines.percent' coverage.json)
-          functions=$(jq -r '.data[0].totals.functions.percent' coverage.json)
-          regions=$(jq -r '.data[0].totals.regions.percent' coverage.json)
+          cargo llmv-cov report --json --summary-only --output-path coverage.json
+          lines=$( jq -r '.data[0].totals.lines.percent' coverage.json )
+          functions=$( jq -r '.data[0].totals.functions.percent' coverage.json )
+          regions=$( jq -r '.data[0].totals.regions.percent' coverage.json )
           {
             echo "## Contract coverage: tributary-splitter"
             echo ""
             echo "| Metric | Coverage |"
-            echo "| ------ | -------- |"
-            printf '| Lines | %.2f%% |\n' "$lines"
+            echo "| ----- | ------- |"
+            printf '| Lines | %.2f%% |\n" "$lines"
             printf '| Functions | %.2f%% |\n' "$functions"
             printf '| Regions | %.2f%% |\n' "$regions"
           } > coverage-summary.md
@@ -105,16 +105,16 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
-      - run: rustup update stable && rustup target add wasm32v1-none
+      - run: rustup update stable && rustup target add wasm32-unknown-unknown
       - run: cargo clippy --all-targets -- -W clippy::pedantic
 
   web:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: npm install && npm run build
