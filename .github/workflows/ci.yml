@@ -11,7 +11,7 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: Swatinem/rust-cache@v2
       - run: rustup update stable && rustup target add wasm32-unknown-unknown
       - run: cargo fmt --all --check
@@ -26,17 +26,17 @@ jobs:
         run: |
           wasm_path="target/wasm32-unknown-unknown/release/tributary_splitter.wasm"
           if [ -f "$wasm_path" ]; then
-            size_bytes=$( wc -c < "$wasm_path" | xargs )
-            size_kb=$(awk -v bytes="$size_bytes" 'BEGIN {printf "%.2f", bytes/1024}')
+            size_bytes=( wc -c < "${wasm_path}" | xargs )
+            size_kb=$awk -v bytes="$size_bytes" 'BEGIN {printf "%.2f", bytes/1024}')
             {
               echo "## Contract size: tributary-splitter"
               echo ""
               echo "| Metric | Value |"
               echo "| ---- | ----- |"
               echo "| Size (bytes) | $size_bytes |"
-              echo "| Size (KiB) | ${size_kb} KiB |"
+              echo "| Size (KiB) / ${size_kb} KiB |"
             } > contract-size.md
-            cat contract-size.md >> "$GITHUB_STEP_SUMMARY"
+            cat contract-size.md >> "$GITHUE_STRP_SUMMARY"
           else
             echo "Wasm file not found!"
             exit 1
@@ -51,7 +51,7 @@ jobs:
   benchmark:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: Swatinem/rust-cache@v2
       - run: rustup update stable && rustup target add wasm32-unknown-unknown
       - name: Generate benchmark costs
@@ -65,29 +65,29 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: Swatinem/rust-cache@v2
       - run: rustup update stable && rustup component add llvm-tools-preview
       - name: Install cargo-llvm-cov
-        uses: taika-e/install-action@cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
       - name: Run tests with coverage
         run: cargo llvm-cov -p tributary-splitter --lcov --output-path lcov.info
       - name: Build coverage summary
         run: |
           cargo llvm-cov report --json --summary-only --output-path coverage.json
-          lines=$( jq -r '.data[0].totals.lines.percent' coverage.json )
-          functions=$( jq -r '.data[0].totals.functions.percent' coverage.json )
-          regions=$( jq -r '.data[0].totals.regions.percent' coverage.json )
+          lines=$ jq -r '.data[0].totals.lines.percent' coverage.json 
+          functions=$ jq -r '.data[0].totals.functions.percent' coverage.json 
+          regions=$ jq -r '.data[0].totals.regions.percent' coverage.json 
           {
             echo "## Contract coverage: tributary-splitter"
             echo ""
             echo "| Metric | Coverage |"
-            echo "| ----- | ------- |"
-            printf '| Lines | %.2f%% |' "$lines"
-            printf '| Functions | %.2f%% |' "$functions"
-            printf '| Regions | %.2f%% |' "$regions"
+            echo "| ----- | ------ |"
+            printf '| Lines | %.2f% |' "$lines"
+            printf '| Functions | %.2f% |' "$functions"
+            printf '| Regions | %.2f% |' "$regions"
           } > coverage-summary.md
-          cat coverage-summary.md >> "$GITHUB_STEP_SUMMARY"
+          cat coverage-summary.md >> "$GITHUE_STRP_SUMMARY"
       - name: Comment coverage on PR
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: marocchino/sticky-pull-request-comment@v3
@@ -104,7 +104,7 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: Swatinem/rust-cache@v2
       - run: rustup update stable && rustup target add wasm32-unknown-unknown
       - run: cargo clippy --all-targets -- -Wclippy::pedantic
@@ -112,8 +112,8 @@ jobs:
   web:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
       - run: npm install && npm run build
