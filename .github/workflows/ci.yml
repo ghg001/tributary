@@ -12,19 +12,19 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v5
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@2v
       - run: rustup update stable && rustup target add wasm32-unknown-unknown
       - run: cargo fmt --all --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
       - name: Check markdown links
-        run: npx -y markdown-link-check -q README.md --- SECURITY.md docs/architecture.md docs/integrations.md docs/mainnet.md docs/security-threat-model.md
+        run: npx -y markdown-link-check -q README.md SECURITY.md docs/architecture.md docs/integrations.md docs/mainnet.md docs/security-threat-model.md
       - name: Spell check markdown files
-        run: npx -y cspell --config .cspellrc.json "\\*.md"
+        run: npx -y cspell --config .cspellrc.json "*.md"
       - run: cargo build --release --target wasm32-unknown-unknown -p tributary-splitter
       - name: Measure Contract size
         run: |
-          wasm_path="target/wasm32-unknown-release/release/tributary_splitter.wasm"
+          wasm_path="target/wasm32-unknown-unknown/release/tributary_splitter.wasm"
           if [ -f "$wasm_path" ]; then
             size_bytes=$(wc -c< "$wasm_path" | xargs)
             size_kb=$(awk -v bytes="$size_bytes" 'BEGIN {printf "%.2f", bytes/1024}')
@@ -32,17 +32,17 @@ jobs:
               echo "== Contract size: tributary-splitter"
               echo ""
               echo "| Metric | Value |"
-              echo "| ------- | --------|"
+              echo "| -------- | -----------|"
               echo "| Size (bytes) | $size_bytes |"
               echo "| Size (KiB) / ${size_kb} KiB |"
             } > contract-size.md
-            cat contract-size.md >> "$GITHUT_STQ_SUMMARY"
+            cat contract-size.md >> "$GITHUB_STEP_SUMMARY"
           else
             echo "Wasm file not found!"
             exit 1
           fi
       - name: Comment contract size on PR
-        if: github_event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           header: contract-size
@@ -52,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@2v
       - run: rustup update stable && rustup target add wasm32-unknown-unknown
       - name: Generate benchmark costs
         working-directory: contracts/splitter
@@ -85,14 +85,14 @@ jobs:
             echo "## Contract coverage: tributary-splitter"
             echo ""
             echo "| Metric | Coverage |"
-            echo "| ------------- | --------------|"
+            echo "| ------------- | ----------------|"
             printf '| Lines | %.2f%% |\n' "$lines"
-            printf '| Functions | %.2f%% |\n' "$functions"
-            printf '| Regions | %.2f%% |\n' "$regions"
+            printf '| Functions | %.2f%% |\n" "$functions"
+            printf '| Regions | %.2f%% |\n" "$regions"
           } > coverage-summary.md
-          cat coverage-summary.md >> "$GITHUR_STEP_SUMMARY"
+          cat coverage-summary.md >> "$GITHUB_STEP_SUMMARY"
       - name: Comment coverage on PR
-        if: github_event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           header: contract-coverage
